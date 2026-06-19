@@ -75,6 +75,21 @@ def post_process_predictions(pred, user_id, user_history):
     Ensures that user history risk flags are propagated correctly to risk_flags.
     Formats lists to semicolon-separated strings.
     """
+    # Map shortened keys back to standard keys if present
+    if isinstance(pred, dict) and ("status" in pred or "part" in pred or "ev_met" in pred):
+        pred = {
+            "evidence_standard_met": pred.get("ev_met", pred.get("evidence_standard_met")),
+            "evidence_standard_met_reason": pred.get("reason", pred.get("evidence_standard_met_reason")),
+            "risk_flags": pred.get("risks", pred.get("risk_flags")),
+            "issue_type": pred.get("issue", pred.get("issue_type")),
+            "object_part": pred.get("part", pred.get("object_part")),
+            "claim_status": pred.get("status", pred.get("claim_status")),
+            "claim_status_justification": pred.get("desc", pred.get("claim_status_justification")),
+            "supporting_image_ids": pred.get("supports", pred.get("supporting_image_ids")),
+            "valid_image": pred.get("valid", pred.get("valid_image")),
+            "severity": pred.get("sev", pred.get("severity"))
+        }
+
     # 1. Handle booleans
     ev_met = parse_boolean(pred.get("evidence_standard_met", False))
     valid_img = parse_boolean(pred.get("valid_image", True))

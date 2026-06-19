@@ -15,7 +15,7 @@ from utils import (
     call_gemini_vlm
 )
 
-from prompt_templates import SYSTEM_PROMPT, generate_user_prompt
+from prompt_templates import SYSTEM_PROMPT, generate_user_prompt, get_optimized_system_prompt
 from evaluation.main import post_process_predictions, FEW_SHOT_EXAMPLES
 
 def main():
@@ -51,10 +51,8 @@ def main():
         
     print(f"Loaded {len(claims)} test claims to process.")
     
-    # We will use Strategy A (Zero-Shot) because it achieved the best performance (80.0% accuracy) 
-    # during evaluation on the sample dataset.
-    sys_prompt = SYSTEM_PROMPT
-    
+    # We will use Strategy A (Zero-Shot) with Config 2 (Selective Context + 512px image resizing)
+    # because it achieved the highest performance (85.0% accuracy) during evaluation.
     predictions = []
     
     for i, row in enumerate(claims):
@@ -67,10 +65,10 @@ def main():
         img_paths_list = [p.strip() for p in image_paths.split(";") if p.strip()]
         img_ids = [os.path.splitext(os.path.basename(p))[0] for p in img_paths_list]
         
-        # Encode images
+        # Encode images with Config 2 downscaling (max_size=512)
         base64_images = []
         for path in img_paths_list:
-            encoded = encode_image_base64(path)
+            encoded = encode_image_base64(path, max_size=512)
             if encoded:
                 base64_images.append(encoded)
                 
@@ -78,6 +76,9 @@ def main():
         u_hist = user_history.get(user_id, {})
         u_summary = u_hist.get("history_summary", "No prior history")
         u_flags = u_hist.get("history_flags", "none")
+        
+        # Build dynamic system prompt (Config 2 - Selective Context)
+        sys_prompt = get_optimized_system_prompt(claim_object, shortened=False)
         
         # Generate user prompt
         user_prompt = generate_user_prompt(

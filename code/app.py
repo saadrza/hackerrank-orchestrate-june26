@@ -20,7 +20,7 @@ from utils import (
     EXHAUSTED_MODELS,
     resolve_path
 )
-from prompt_templates import SYSTEM_PROMPT, generate_user_prompt
+from prompt_templates import SYSTEM_PROMPT, generate_user_prompt, get_optimized_system_prompt
 from evaluation.main import post_process_predictions
 
 # Load environment variables
@@ -79,8 +79,6 @@ def run_predictions_task(preferred_model: str):
         PIPELINE_STATUS["results"] = []
         PIPELINE_STATUS["error"] = None
         
-        sys_prompt = SYSTEM_PROMPT
-        
         for i, row in enumerate(claims):
             if not PIPELINE_STATUS["running"]:
                 # Manual stop/interrupted
@@ -98,10 +96,10 @@ def run_predictions_task(preferred_model: str):
             # Clean image paths for frontend rendering
             cleaned_img_paths = [clean_image_path(p) for p in img_paths_list]
             
-            # Encode images
+            # Encode images with Config 2 downscaling (max_size=512)
             base64_images = []
             for path in img_paths_list:
-                encoded = encode_image_base64(path)
+                encoded = encode_image_base64(path, max_size=512)
                 if encoded:
                     base64_images.append(encoded)
                     
@@ -109,6 +107,9 @@ def run_predictions_task(preferred_model: str):
             u_hist = user_history.get(user_id, {})
             u_summary = u_hist.get("history_summary", "No prior history")
             u_flags = u_hist.get("history_flags", "none")
+            
+            # Build dynamic system prompt (Config 2 - Selective Context)
+            sys_prompt = get_optimized_system_prompt(claim_object, shortened=False)
             
             # Generate user prompt
             user_prompt = generate_user_prompt(
