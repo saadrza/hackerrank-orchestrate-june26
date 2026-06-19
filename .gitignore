@@ -1,0 +1,6 @@
+.env
+.openai_cache.json
+__pycache__/
+*.zip
+evaluation_report.md
+output.csv
