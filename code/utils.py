@@ -20,6 +20,7 @@ if api_key:
 
 CACHE_FILE = ".openai_cache.json" # keep same cache file name to preserve cached images/data if any
 LAST_CALL_TIME = 0.0
+EXHAUSTED_MODELS = set()
 
 def resolve_path(path, base_dir="dataset"):
     """
@@ -175,6 +176,11 @@ def call_gemini_vlm(model, system_prompt, user_prompt, base64_images, max_retrie
         if m not in pool:
             pool.append(m)
             
+    # Filter out known exhausted models
+    pool = [m for m in pool if m not in EXHAUSTED_MODELS]
+    if not pool:
+        raise RuntimeError("All models in the pool are marked as exhausted.")
+            
     contents = [user_prompt]
     for img_b64 in base64_images:
         if img_b64:
@@ -243,7 +249,8 @@ def call_gemini_vlm(model, system_prompt, user_prompt, base64_images, max_retrie
                 
                 # If we hit a daily limit or project quota (e.g. GenerateRequestsPerDay), fail over to the next model in the pool!
                 if "GenerateRequestsPerDay" in err_str or "limit: 20" in err_str or ("quota" in err_str.lower() and "day" in err_str.lower()):
-                    print(f"Daily quota limit exceeded for model {current_model}. Failing over to next model in pool...")
+                    print(f"Daily quota limit exceeded for model {current_model}. Adding to exhausted set and failing over...")
+                    EXHAUSTED_MODELS.add(current_model)
                     break # Break out of the retry loop for this model to try the next model
                     
                 if attempt == max_retries - 1:
